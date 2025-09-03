@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>College Degree ROI — Sheets Build (Fixed University List)</title>
+  <style>
+    :root{--bg:#0b0e11;--panel:#12161c;--muted:#9aa4af;--text:#e6ecf2;--accent:#5dd0ff;--danger:#ff6b6b;--border:#1f2732;--shadow:0 8px 24px rgba(0,0,0,.35)}
+    @media (prefers-color-scheme: light){:root{--bg:#f7fafc;--panel:#fff;--muted:#5b6875;--text:#12161c;--accent:#0066ff;--danger:#ff6b6b;--border:#e6edf5;--shadow:0 8px 24px rgba(2,10,24,.08)}}
+    html,body{height:100%}body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,"Helvetica Neue",Arial;background:var(--bg);color:var(--text)}
+    .wrap{display:grid;grid-template-columns:320px 1fr;gap:18px;padding:18px;max-width:1400px;margin:0 auto}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+    .pad{padding:18px}
+    h1{font-size:clamp(20px,3vw,30px);margin:0 0 12px 0}h2{font-size:18px;margin:0 0 10px 0}.sub{color:var(--muted);font-size:14px}
+    label{font-size:12px;color:var(--muted)}input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text)}input[type=number]{appearance:textfield}input:focus,select:focus{outline:2px solid var(--accent);border-color:transparent}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.03));color:var(--text);cursor:pointer}
+    .btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent));color:#001527;border-color:transparent}
+    .btn.danger{background:linear-gradient(180deg,var(--danger),var(--danger));color:#1a0000;border-color:transparent}
+    .hr{height:1px;background:var(--border);margin:14px 0}.list{display:flex;flex-direction:column;gap:10px;max-height:44vh;overflow:auto;padding-right:4px}
+    .table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:right}th:first-child,td:first-child{text-align:left}thead th{position:sticky;top:0;background:var(--panel);z-index:1}
+    .kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.k{padding:12px 14px;border:1px solid var(--border);border-radius:14px}.k .label{font-size:12px;color:var(--muted)}.k .val{font-size:20px;font-weight:700}
+    .svg-bar{width:100%;height:260px}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:1000}
+    .modal{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);width:min(800px,92vw)}
+    .modal header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+    .modal header h3{margin:0;font-size:18px}.modal .content{padding:18px;display:flex;flex-direction:column;gap:12px}.modal .actions{display:flex;gap:8px;padding:0 18px 18px 18px}
+    .error{color:var(--danger);font-size:12px}
+    /* FIX: aligned, visible university names */
+    .uni-item{display:grid; grid-template-columns:18px 1fr; align-items:start; column-gap:10px; margin:4px 0}
+    .uni-item input[type="checkbox"]{width:16px; height:16px; margin:2px 0 0 0; align-self:start}
+    .uni-item span{line-height:1.35; color:var(--text)}
+    @media (max-width: 1024px){.wrap{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <aside class="card pad">
+      <h2>Universities</h2>
+      <div class="sub">Select target universities (grouped by region).</div>
+      <div class="hr"></div>
+      <div class="list" id="universityList"></div>
+      <div class="hr"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="selectAll">Select all</button>
+        <button class="btn" id="clearAll">Clear all</button>
+        <button class="btn" id="saveSelection">Save selection</button>
+      </div>
+    </aside>
+
+    <main class="card pad">
+      <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div>
+          <h1>College Degree ROI — 3‑Year</h1>
+          <div class="sub">This build keeps the simple visitor form and adds Google Sheets collection. University list is fixed for alignment & visibility.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="exportCsv">Export ROI CSV</button>
+          <button class="btn" id="exportJson">Export ROI JSON</button>
+          <button class="btn primary" id="headerOpenVisitor">New visitor entry</button>
+        </div>
+      </header>
+
+      <div class="hr"></div>
+
+      <section class="kpi">
+        <div class="k"><div class="label">Selected universities</div><div class="val" id="k_unis">0</div></div>
+        <div class="k"><div class="label">Cohorts</div><div class="val" id="k_cohorts">0</div></div>
+        <div class="k"><div class="label">Best 3‑yr ROI</div><div class="val" id="k_best">—</div></div>
+        <div class="k"><div class="label">Median ROI</div><div class="val" id="k_median">—</div></div>
+      </section>
+
+      <div class="hr"></div>
+
+      <section>
+        <h2>Visitor Submissions</h2>
+        <div class="sub">Pop‑up form entries are saved locally <em>and</em> (optionally) sent to your private Google Sheet (paste your Web App URL in the code).</div>
+        <div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap">
+          <button class="btn primary" id="openVisitorForm">Open form</button>
+          <button class="btn" id="exportSubsCsv">Export submissions CSV</button>
+          <button class="btn danger" id="clearSubs">Clear submissions</button>
+        </div>
+        <div id="subsWrap" class="table-wrap"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Visitor form modal (extended fields, no dropdowns) -->
+  <div id="visitorModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="visitorTitle">
+    <div class="modal">
+      <header>
+        <h3 id="visitorTitle">Quick Visitor Form</h3>
+        <button id="visitorClose" class="btn" aria-label="Close form">Close</button>
+      </header>
+      <form id="visitorForm">
+        <div class="content">
+          <div class="row">
+            <div>
+              <label>University/College</label>
+              <input id="v_uni" required placeholder="e.g., University of Oxford" />
+            </div>
+            <div>
+              <label>Degree Type</label>
+              <select id="v_degreeType" required>
+                <option value="Bachelor's">Bachelor's</option>
+                <option value="Master's">Master's</option>
+                <option value="PhD">PhD</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Degree Major</label>
+              <input id="v_major" required placeholder="e.g., Economics" />
+            </div>
+            <div>
+              <label>Nationality</label>
+              <input id="v_nat" required placeholder="e.g., Malaysian" />
+            </div>
+          </div>
+          <div class="row-3">
+            <div>
+              <label>Start Year</label>
+              <input id="v_start" type="number" min="1990" max="2100" required placeholder="2022" />
+            </div>
+            <div>
+              <label>Graduation Year</label>
+              <input id="v_grad" type="number" min="1990" max="2100" required placeholder="2026" />
+            </div>
+            <div>
+              <label># of Months Lapsed between Graduation and Start of First Job</label>
+              <input id="v_months" type="number" min="0" max="60" required placeholder="3" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Tuition Fee Currency</label>
+              <select id="v_tuitionCur" required>
+                <option>USD</option><option>GBP</option><option>EUR</option><option>AUD</option><option>CAD</option><option>NZD</option><option>SGD</option><option>MYR</option><option>INR</option><option>CNY</option><option>JPY</option><option>HKD</option>
+              </select>
+            </div>
+            <div>
+              <label>First-Year Tuition Fee</label>
+              <input id="v_tuition" type="number" min="0" step="1" required placeholder="30000" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Country of First Employment</label>
+              <input id="v_empCountry" required placeholder="e.g., United Kingdom" />
+            </div>
+            <div>
+              <label>Salary Currency</label>
+              <select id="v_salaryCur" required>
+                <option>USD</option><option>GBP</option><option>EUR</option><option>AUD</option><option>CAD</option><option>NZD</option><option>SGD</option><option>MYR</option><option>INR</option><option>CNY</option><option>JPY</option><option>HKD</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Post-Tax Income For First Full Year of Employment</label>
+              <input id="v_income" type="number" min="0" step="1" required placeholder="45000" />
+            </div>
+            <div></div>
+          </div>
+          <div id="v_errors" class="error"></div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn primary">Submit</button>
+          <button type="button" class="btn" id="visitorClose2">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ---------------------------
+    // University lists
+    // ---------------------------
+    const REGIONS=["UK","US","Australia"];
+    const UNIVERSITIES={
+      UK:["University of Oxford","University of Cambridge","Imperial College London","London School of Economics (LSE)","University College London (UCL)","University of Edinburgh","King's College London","University of Manchester","University of Warwick","University of Bristol"],
+      US:["Harvard University","Massachusetts Institute of Technology (MIT)","Stanford University","California Institute of Technology (Caltech)","Princeton University","Yale University","Columbia University","University of Chicago","University of Pennsylvania","University of California, Berkeley"],
+      Australia:["Australian National University (ANU)","University of Melbourne","University of Sydney","UNSW Sydney","University of Queensland","Monash University","University of Western Australia","University of Adelaide","University of Technology Sydney (UTS)","RMIT University"]
+    };
+    const UNI_TO_REGION=(()=>{const m={}; REGIONS.forEach(r=>UNIVERSITIES[r].forEach(u=>m[u]=r)); return m;})();
+
+    // ---------------------------
+    // Local storage for submissions
+    // ---------------------------
+    let selectedUniversities=new Set();
+    let submissions=[]; const SUB_KEY='roi_submissions_v1_sheets_fixed';
+    function saveSubmissions(){ localStorage.setItem(SUB_KEY, JSON.stringify(submissions)); }
+    function loadSubmissions(){ try{ const s=JSON.parse(localStorage.getItem(SUB_KEY)||'null'); if(Array.isArray(s)) submissions=s; }catch(e){} }
+
+    // ---------------------------
+    // Google Sheets integration (Apps Script)
+    // ---------------------------
+    const APPS_SCRIPT_URL='https://script.google.com/macros/s/PASTE_YOUR_WEB_APP_ID_HERE/exec'; // <- replace
+    async function sendToSheets(payload){
+      if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('PASTE_YOUR')) return false;
+      try{ await fetch(APPS_SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)}); return true; }catch(e){ console.warn('Sheets submit failed',e); return false; }
+    }
+
+    // ---------------------------
+    // UI: University selector (FIXED)
+    // ---------------------------
+    function renderUniversitySelector(){
+      const c=document.getElementById('universityList'); c.innerHTML='';
+      REGIONS.forEach(region=>{
+        const block=document.createElement('div');
+        block.innerHTML=`<div style="font-weight:600;margin:12px 0 8px">${region}</div>`;
+        UNIVERSITIES[region].forEach(u=>{
+          const label=document.createElement('label');
+          label.className='uni-item';
+          const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=selectedUniversities.has(u);
+          cb.onchange=()=>{ if(cb.checked) selectedUniversities.add(u); else selectedUniversities.delete(u); document.getElementById('k_unis').textContent=selectedUniversities.size; };
+          const span=document.createElement('span'); span.textContent=u; // visible name
+          label.appendChild(cb); label.appendChild(span); block.appendChild(label);
+        });
+        c.appendChild(block);
+      });
+    }
+
+    // ---------------------------
+    // Submissions table
+    // ---------------------------
+    function renderSubmissions(){
+      const wrap=document.getElementById('subsWrap');
+      if(!submissions.length){ wrap.innerHTML='<div class="sub">No submissions yet.</div>'; return; }
+      let html='<table><thead><tr>'+
+        '<th>Time</th><th>University/College</th><th>Start Year</th><th>Graduation Year</th><th>Degree Type</th><th>Degree Major</th>'+
+        '<th>Nationality</th><th>Tuition Currency</th><th style="text-align:right">First-Year Tuition</th>'+
+        '<th>Country of First Employment</th><th>Salary Currency</th><th style="text-align:right">Post-Tax Income Y1</th><th>Months Lapsed</th>'+
+        '</tr></thead><tbody>';
+      submissions.slice().reverse().forEach(s=>{
+        html += `<tr>`+
+          `<td>${new Date(s.ts).toLocaleString()}</td>`+
+          `<td>${s.university||''}</td>`+
+          `<td>${s.startYear||''}</td>`+
+          `<td>${s.gradYear||''}</td>`+
+          `<td>${s.degreeType||''}</td>`+
+          `<td>${s.major||''}</td>`+
+          `<td>${s.nationality||''}</td>`+
+          `<td>${s.tuitionCur||''}</td>`+
+          `<td style="text-align:right">${s.tuition??''}</td>`+
+          `<td>${s.empCountry||''}</td>`+
+          `<td>${s.salaryCur||''}</td>`+
+          `<td style="text-align:right">${s.income??''}</td>`+
+          `<td>${s.monthsLapsed??''}</td>`+
+        `</tr>`;
+      });
+      html+='</tbody></table>'; wrap.innerHTML=html;
+    }
+
+    function exportSubsCSV(){
+      if(!submissions.length){ alert('No submissions to export.'); return; }
+      const rows=[[ 'Timestamp','University/College','Start Year','Graduation Year','Degree Type','Degree Major','Nationality','Tuition Currency','First-Year Tuition','Country of First Employment','Salary Currency','Post-Tax Income Y1','Months Lapsed' ]];
+      submissions.forEach(s=> rows.push([s.ts,s.university,s.startYear,s.gradYear,s.degreeType,s.major,s.nationality,s.tuitionCur,s.tuition,s.empCountry,s.salaryCur,s.income,s.monthsLapsed]));
+      const csv = rows.map(r=> r.map(x=>`"${String(x??'').replaceAll('"','""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='visitor_submissions.csv'; a.click(); URL.revokeObjectURL(a.href);
+    }
+
+    function clearSubs(){ if(!confirm('Clear all submissions?')) return; submissions=[]; saveSubmissions(); renderSubmissions(); }
+
+    function openVisitorModal(){ const m=document.getElementById('visitorModal'); if(m) m.style.display='flex'; }
+    function closeVisitorModal(){ const m=document.getElementById('visitorModal'); if(m) m.style.display='none'; }
+
+    function wire(){
+      document.getElementById('selectAll').onclick=()=>{ REGIONS.forEach(r=>UNIVERSITIES[r].forEach(u=>selectedUniversities.add(u))); renderUniversitySelector(); document.getElementById('k_unis').textContent=selectedUniversities.size; };
+      document.getElementById('clearAll').onclick=()=>{ selectedUniversities.clear(); renderUniversitySelector(); document.getElementById('k_unis').textContent=0; };
+      document.getElementById('saveSelection').onclick=()=> alert('Saved (local to this browser).');
+      document.getElementById('openVisitorForm').onclick=openVisitorModal;
+      const hov=document.getElementById('headerOpenVisitor'); if(hov) hov.onclick=openVisitorModal;
+      document.getElementById('exportSubsCsv').onclick=exportSubsCSV;
+      document.getElementById('clearSubs').onclick=clearSubs;
+
+      const vf=document.getElementById('visitorForm');
+      if(vf){
+        document.getElementById('visitorClose').onclick=closeVisitorModal;
+        document.getElementById('visitorClose2').onclick=closeVisitorModal;
+        vf.addEventListener('submit', async (e)=>{
+          e.preventDefault();
+          const s={
+            ts:new Date().toISOString(),
+            university:document.getElementById('v_uni').value.trim(),
+            startYear:parseInt(document.getElementById('v_start').value,10),
+            gradYear:parseInt(document.getElementById('v_grad').value,10),
+            degreeType:document.getElementById('v_degreeType').value,
+            major:document.getElementById('v_major').value.trim(),
+            nationality:document.getElementById('v_nat').value.trim(),
+            tuitionCur:document.getElementById('v_tuitionCur').value,
+            tuition:Number(document.getElementById('v_tuition').value||0),
+            empCountry:document.getElementById('v_empCountry').value.trim(),
+            salaryCur:document.getElementById('v_salaryCur').value,
+            income:Number(document.getElementById('v_income').value||0),
+            monthsLapsed:parseInt(document.getElementById('v_months').value,10)
+          };
+          const errBox=document.getElementById('v_errors'); errBox.textContent='';
+          if(s.gradYear < s.startYear){ errBox.textContent='Graduation Year cannot be before Start Year.'; return; }
+          if(!Number.isFinite(s.monthsLapsed) || s.monthsLapsed<0 || s.monthsLapsed>60){ errBox.textContent='Months lapsed must be between 0 and 60.'; return; }
+
+          submissions.push(s); saveSubmissions(); renderSubmissions();
+          sendToSheets(s).catch(()=>console.warn('Sheets submit failed'));
+          if(UNI_TO_REGION[s.university]){ selectedUniversities.add(s.university); renderUniversitySelector(); document.getElementById('k_unis').textContent=selectedUniversities.size; }
+          vf.reset(); closeVisitorModal();
+        });
+      }
+    }
+
+    function init(){
+      loadSubmissions(); renderSubmissions(); renderUniversitySelector(); wire();
+      openVisitorModal();
+    }
+    init();
+  </script>
+</body>
+</html>
